@@ -62,8 +62,13 @@ function App() {
       formData.append("resume", resume);
       formData.append("jobDescription", jobDescription);
 
+      // In production this resolves to /api/analyze on the same Vercel
+      // deployment (see frontend/api/analyze.js). Set VITE_API_URL if you
+      // ever want to point at a separately-hosted backend instead.
+      const apiUrl = import.meta.env.VITE_API_URL || "/api/analyze";
+
       const res = await axios.post(
-        "http://localhost:5000/analyze",
+        apiUrl,
         formData,
         {
           headers: {
@@ -75,7 +80,9 @@ function App() {
       setResult(res.data);
     } catch (err) {
       console.log(err);
-      alert("Analysis failed.");
+      const message =
+        err.response?.data?.error || "Analysis failed. Please try again.";
+      alert(message);
     } finally {
       setLoading(false);
     }
