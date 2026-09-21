@@ -108,25 +108,42 @@ function App() {
   };
 
   const downloadAnalysis = async () => {
-    const canvas = await html2canvas(analysisRef.current);
+    // html2canvas only paints what's inside the captured element. The dark/
+    // light backdrop lives on <body>, one level up, so without this option
+    // html2canvas defaults to a white canvas -- which is why white text on
+    // the glass cards was rendering invisible in the exported PDF.
+    const canvas = await html2canvas(analysisRef.current, {
+      backgroundColor: darkMode ? "#0f172a" : "#667eea",
+    });
 
     const imgData = canvas.toDataURL("image/png");
 
     const pdf = new jsPDF("p", "mm", "a4");
 
-    const width = 190;
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 10;
 
-    const height =
-      (canvas.height * width) / canvas.width;
+    const width = pageWidth - margin * 2;
+    const height = (canvas.height * width) / canvas.width;
 
-    pdf.addImage(
-      imgData,
-      "PNG",
-      10,
-      10,
-      width,
-      height
-    );
+    // The rendered analysis is usually taller than one A4 page. jsPDF's
+    // addImage doesn't auto-paginate, so a single call was silently
+    // cutting off everything past the first ~277mm. Slice the same image
+    // across as many pages as it actually needs.
+    const usablePageHeight = pageHeight - margin * 2;
+    let heightLeft = height;
+    let position = 0;
+
+    pdf.addImage(imgData, "PNG", margin, margin, width, height);
+    heightLeft -= usablePageHeight;
+
+    while (heightLeft > 0) {
+      position -= usablePageHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", margin, position + margin, width, height);
+      heightLeft -= usablePageHeight;
+    }
 
     pdf.save("ResumeAnalysis.pdf");
   };
